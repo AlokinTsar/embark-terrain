@@ -321,6 +321,45 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				// Shader scale array is aligned to match this.
 				std::array<uint32_t, 8> scale_align = { 5, 6, 7, 0, 1, 2, 3, 4 };
 
+				// Raises the weight of a texture in this pixel by p_amount. If it isn't the base or overlay
+				// yet, lowers the weaker one first so the swap isn't visible. Shared by Spray and the Base Paint rim.
+				auto add_texture_weight = [&](const uint32_t tex_id, const real_t brush_value) {
+					// Pick lowest weighted id, and lower to zero before setting new asset id.
+					if (tex_id != base_id && tex_id != overlay_id) {
+						if (modifier_alt) {
+							if (blend < 0.5f) {
+								overlay_id = tex_id;
+							} else {
+								base_id = tex_id;
+							}
+						} else {
+							if (blend >= 0.5f) {
+								blend = CLAMP(blend + brush_value, 0.f, 1.f);
+							} else {
+								blend = CLAMP(blend - brush_value, 0.f, 1.f);
+							}
+							if (blend <= 1.0f / 254.f) {
+								overlay_id = tex_id;
+							} else if (blend >= (1.f - 1.0f / 254.f)) {
+								base_id = tex_id;
+							}
+						}
+					}
+
+					if (base_id == tex_id) {
+						blend = CLAMP(blend - brush_value, 0.f, 1.f);
+						if (brush_alpha > 0.5f && blend < 0.5f) {
+							autoshader = false;
+						}
+					}
+					if (overlay_id == tex_id) {
+						blend = CLAMP(blend + brush_value, 0.f, 1.f);
+						if (brush_alpha > 0.5f && blend >= 0.5f) {
+							autoshader = false;
+						}
+					}
+				};
+
 				switch (_tool) {
 					case TEXTURE: {
 						if (!data->is_in_slope(brush_global_position, slope_range)) {
@@ -358,6 +397,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										// Maintain 0 = 0, remap negatives to end.
 										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
 									}
+								} else if (enable_texture && brush_alpha > 0.f) {
+									// Feathered rim: fade the new texture in over the old one instead of a hard cut.
+									// Strokes overlap, so the weights accumulate into a smooth gradient.
+									add_texture_weight(texture_asset_id, CLAMP(brush_alpha * 0.5f, 0.f, 0.25f));
 								}
 								break;
 							}
@@ -367,40 +410,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
-									// Pick lowest weighted id, and lower to zero before setting new asset id.
-									if (texture_asset_id != base_id && texture_asset_id != overlay_id) {
-										if (modifier_alt) {
-											if (blend < 0.5f) {
-												overlay_id = texture_asset_id;
-											} else {
-												base_id = texture_asset_id;
-											}
-										} else {
-											if (blend >= 0.5f) {
-												blend = CLAMP(blend + brush_value, 0.f, 1.f);
-											} else {
-												blend = CLAMP(blend - brush_value, 0.f, 1.f);
-											}
-											if (blend <= 1.0f / 254.f) {
-												overlay_id = texture_asset_id;
-											} else if (blend >= (1.f - 1.0f / 254.f)) {
-												base_id = texture_asset_id;
-											}
-										}
-									}
-
-									if (base_id == texture_asset_id) {
-										blend = CLAMP(blend - brush_value, 0.f, 1.f);
-										if (brush_alpha > 0.5f && blend < 0.5f) {
-											autoshader = false;
-										}
-									}
-									if (overlay_id == texture_asset_id) {
-										blend = CLAMP(blend + brush_value, 0.f, 1.f);
-										if (brush_alpha > 0.5f && blend >= 0.5f) {
-											autoshader = false;
-										}
-									}
+									add_texture_weight(texture_asset_id, brush_value);
 								}
 
 								if ((base_id == texture_asset_id && blend < 0.5f) || (overlay_id == texture_asset_id && blend >= 0.5f)) {
