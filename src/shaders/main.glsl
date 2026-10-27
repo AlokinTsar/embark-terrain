@@ -43,7 +43,8 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 // Private uniforms
 group_uniforms private;
-uniform vec3 _target_pos = vec3(0.f);
+uniform vec3 _target_pos = vec3(0.f); // Terrain local space
+uniform vec3 _origin = vec3(0.f); // Terrain world position. All other positions here are terrain local
 uniform float _mesh_size = 48.f;
 uniform float _subdiv = 1.f;
 uniform float _tessellation_level = 0.f;
@@ -184,10 +185,10 @@ float interpolated_height(vec2 pos) {
 
 void vertex() {
 	// Save Camera Position to varying for access in later functions
-	v_camera_pos = MAIN_CAM_INV_VIEW_MATRIX[3].xyz;
+	v_camera_pos = MAIN_CAM_INV_VIEW_MATRIX[3].xyz - _origin;
 
 	// Get vertex of flat plane in world coordinates and set world UV
-	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz - _origin;
 
 	// Distance from target node to vertex on a flat plane
 	v_vertex_xz_dist = length(v_vertex.xz - _target_pos.xz);
@@ -248,7 +249,7 @@ void vertex() {
 
 	// Convert model space to view space w/ skip_vertex_transform render mode
 	// Include displacement without modifying v_vertex.
-	VERTEX = (VIEW_MATRIX * vec4(v_vertex + displacement, 1.0)).xyz;
+	VERTEX = (VIEW_MATRIX * vec4(v_vertex + displacement + _origin, 1.0)).xyz;
 	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	BINORMAL = normalize((MODELVIEW_MATRIX * vec4(BINORMAL, 0.0)).xyz);
 	TANGENT = normalize((MODELVIEW_MATRIX * vec4(TANGENT, 0.0)).xyz);

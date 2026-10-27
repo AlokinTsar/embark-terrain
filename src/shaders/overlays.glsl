@@ -9,7 +9,7 @@ R"(
 	{
 		vec3 __grid_color = vec3(.05);
 		float __line_thickness = 0.01 * sqrt(-VERTEX.z) * _vertex_density;
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * _vertex_density;
+		vec3 __pixel_pos = ((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz - _origin) * _vertex_density;
 		vec2 __p = __pixel_pos.xz;
 		// Instancer Grid
 		#define CELL_SIZE 32.0
@@ -24,8 +24,8 @@ R"(
 //INSERT: OVERLAY_VERTEX_GRID
 	// Show vertex grid
 	{
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz;
-		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz;
+		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xyz - _origin;
+		vec3 __camera_pos = INV_VIEW_MATRIX[3].xyz - _origin;
 		float __grid_line = 0.05;		// Vertex grid line thickness
 		float __grid_step = 1.0;			// Vertex grid size, 1.0 == integer units
 		float __vertex_size = 4.;		// Size of vertices

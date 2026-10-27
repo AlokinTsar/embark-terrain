@@ -23,6 +23,7 @@ void Terrain3DEditor::_send_region_aabb(const Vector2i &p_region_loc, const Vect
 	edited_area.size = Vector3(region_size, p_height_range.y - p_height_range.x, region_size);
 	edited_area.position *= _terrain->get_vertex_spacing();
 	edited_area.size *= _terrain->get_vertex_spacing();
+	edited_area.position += _terrain->get_origin(); // To world space
 	_terrain->get_data()->add_edited_area(edited_area);
 }
 
@@ -132,7 +133,9 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	}
 	real_t strength = mouse_pressure * (real_t)_brush_data["strength"];
 
-	real_t height = _brush_data["height"];
+	// Brush heights and the cursor are in world space. Map heights are in terrain local space.
+	const real_t origin_y = _terrain->get_origin().y;
+	real_t height = real_t(_brush_data["height"]) - origin_y;
 	Color color = _brush_data["color"];
 	real_t roughness = _brush_data["roughness"];
 
@@ -243,7 +246,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Lift troughs
-							real_t brush_center_y = p_global_position.y + brush_alpha * strength;
+							real_t brush_center_y = p_global_position.y - origin_y + brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf, srcf + brush_alpha * strength);
 						} else {
 							// Raise
@@ -257,7 +260,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						} else if (modifier_alt && !std::isnan(p_global_position.y)) {
 							// Flatten peaks
-							real_t brush_center_y = p_global_position.y - brush_alpha * strength;
+							real_t brush_center_y = p_global_position.y - origin_y - brush_alpha * strength;
 							destf = Math::clamp(brush_center_y, srcf - brush_alpha * strength, srcf);
 						} else {
 							// Lower
@@ -293,7 +296,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 
 							real_t weight = dir.normalized().dot(brush_xz - point_1_xz) / dir.length();
 							weight = Math::clamp(weight, (real_t)0.0f, (real_t)1.0f);
-							real_t height = Math::lerp(point_1.y, point_2.y, weight);
+							real_t height = Math::lerp(point_1.y, point_2.y, weight) - origin_y;
 							destf = Math::lerp(srcf, height, CLAMP(brush_alpha * strength, 0.f, 1.f));
 						}
 						break;
@@ -304,7 +307,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 				dest = Color(destf, 0.f, 0.f, 1.f);
 				region->update_height(destf);
 				data->update_master_height(destf);
-				edited_position.y = destf;
+				edited_position.y = destf + origin_y;
 				edited_area = edited_area.expand(edited_position);
 
 			} else if (map_type == TYPE_CONTROL) {

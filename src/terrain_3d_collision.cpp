@@ -89,7 +89,7 @@ void Terrain3DCollision::_shape_set_transform(const int p_shape_id, const Transf
 
 Vector3 Terrain3DCollision::_shape_get_position(const int p_shape_id) const {
 	if (is_editor_mode()) {
-		return _shapes[p_shape_id]->get_global_position();
+		return _shapes[p_shape_id]->get_position(); // Body is top level, so this is terrain local space
 	} else {
 		return PS->body_get_shape_transform(_static_body_rid, p_shape_id).origin;
 	}
@@ -182,6 +182,7 @@ void Terrain3DCollision::build() {
 		PS->body_set_collision_priority(_static_body_rid, _priority);
 	}
 	_reload_physics_material();
+	_apply_origin();
 
 	// Create CollisionShape3Ds
 	int shape_count;
@@ -227,6 +228,28 @@ void Terrain3DCollision::build() {
 	}
 
 	_initialized = true;
+	update();
+}
+
+// Shapes are created in terrain local space. The body places that space in the world.
+void Terrain3DCollision::_apply_origin() {
+	Transform3D xform(Basis(), _terrain->get_origin());
+	if (is_editor_mode()) {
+		if (_static_body) {
+			_static_body->set_global_transform(xform);
+		}
+	} else if (_static_body_rid.is_valid()) {
+		PS->body_set_state(_static_body_rid, PhysicsServer3D::BODY_STATE_TRANSFORM, xform);
+	}
+}
+
+void Terrain3DCollision::update_origin() {
+	IS_INIT(VOID);
+	if (!_initialized) {
+		return;
+	}
+	_apply_origin();
+	reset_target_position();
 	update();
 }
 

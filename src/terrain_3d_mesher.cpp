@@ -319,7 +319,12 @@ void Terrain3DMesher::destroy() {
 void Terrain3DMesher::snap() {
 	IS_INIT(VOID);
 	// Always update target position in shader
+	// Terrain meshes work in terrain local space. The ocean works in world space.
+	const Vector3 origin = _apply_origin ? _terrain->get_origin() : V3_ZERO;
 	Vector3 target_pos = _terrain->get_clipmap_target_position();
+	if (!_apply_origin) {
+		target_pos += _terrain->get_origin();
+	}
 	if (_material.is_valid()) {
 		RS->material_set_param(_material, "_target_pos", target_pos);
 	}
@@ -395,7 +400,7 @@ void Terrain3DMesher::snap() {
 					}
 				}
 				t = t.scaled(lod_scale);
-				t.origin += pos;
+				t.origin += pos + origin;
 				RS->instance_set_transform(mesh_array[instance], t);
 				RS->instance_teleport(mesh_array[instance]);
 			}

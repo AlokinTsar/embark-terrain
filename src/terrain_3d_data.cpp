@@ -96,6 +96,7 @@ void Terrain3DData::initialize(Terrain3D *p_terrain) {
 	_terrain = p_terrain;
 	_region_map.resize(REGION_MAP_SIZE * REGION_MAP_SIZE);
 	_vertex_spacing = _terrain->get_vertex_spacing();
+	_origin = _terrain->get_origin();
 	if (!prev_initialized && !_terrain->get_data_directory().is_empty()) {
 		load_directory(_terrain->get_data_directory());
 	}
@@ -720,16 +721,17 @@ Color Terrain3DData::get_pixel_descaled(const MapType p_map_type, const Vector2i
 }
 
 real_t Terrain3DData::get_surface_height(const Vector3 &p_global_position) const {
-	Vector3 pos = p_global_position;
+	// Work in terrain local space; the height is returned in world space
+	Vector3 pos = p_global_position - _origin;
 	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
 	// Compare position to nearest vertex, and if close don't interpolate
 	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
 	if ((pos - pos_round).length_squared() < 0.0001f) {
-		return get_modified_height(world_to_vgrid(pos_round));
+		return get_modified_height(world_to_vgrid(pos_round + _origin)) + _origin.y;
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
-		Vector2i v00 = world_to_vgrid(pos);
+		Vector2i v00 = world_to_vgrid(pos + _origin);
 		real_t ht00 = get_modified_height(v00);
 		Vector2i v01 = v00 + Vector2i(0, 1);
 		real_t ht01 = get_modified_height(v01);
@@ -737,7 +739,7 @@ real_t Terrain3DData::get_surface_height(const Vector3 &p_global_position) const
 		real_t ht10 = get_modified_height(v10);
 		Vector2i v11 = v00 + Vector2i(1, 1);
 		real_t ht11 = get_modified_height(v11);
-		return bilerp(ht00, ht01, ht10, ht11, Vector2(v00), Vector2(v11), v3v2(pos / step));
+		return bilerp(ht00, ht01, ht10, ht11, Vector2(v00), Vector2(v11), v3v2(pos / step)) + _origin.y;
 	}
 }
 
@@ -904,7 +906,7 @@ Vector3 Terrain3DData::get_mesh_vertex(const int32_t p_lod, const HeightFilter p
 	LOG(INFO, "Calculating vertex location");
 	Vector2i vgrid = world_to_vgrid(p_global_position);
 	real_t height = get_mesh_vertex_height(p_lod, p_filter, vgrid);
-	return Vector3(p_global_position.x, height, p_global_position.z);
+	return Vector3(p_global_position.x, height + _origin.y, p_global_position.z);
 }
 
 real_t Terrain3DData::get_mesh_vertex_height(const int32_t p_lod, const HeightFilter p_filter, const Vector2i &p_vgrid) const {

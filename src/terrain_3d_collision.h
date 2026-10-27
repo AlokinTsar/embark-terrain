@@ -53,6 +53,7 @@ private:
 	void _shape_set_disabled(const int p_shape_id, const bool p_disabled);
 	void _shape_set_transform(const int p_shape_id, const Transform3D &p_xform);
 	Vector3 _shape_get_position(const int p_shape_id) const;
+	void _apply_origin();
 	void _shape_set_data(const int p_shape_id, const Dictionary &p_dict);
 
 	void _reload_physics_material();
@@ -65,6 +66,7 @@ public:
 	void build();
 	void reset_target_position() { _last_snapped_pos = V2I_MAX; }
 	void update(const Vector2i &p_region_loc = V2I_MAX, const bool p_rebuild = false);
+	void update_origin();
 	void destroy();
 
 	void set_mode(const CollisionMode p_mode);

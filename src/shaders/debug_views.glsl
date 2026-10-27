@@ -53,7 +53,7 @@ group_uniforms;
 	// Show turbulent areas of the terrain surface
 	{
 		const vec3 __offsets = vec3(0, 1, 2);
-		vec2 __index_id = floor((INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xz);
+		vec2 __index_id = floor((INV_VIEW_MATRIX * vec4(VERTEX,1.0)).xz - _origin.xz);
 		float __h[6];
 		__h[0] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.xy), 0).r;
 		__h[1] = texelFetch(_height_maps, get_index_coord(__index_id + __offsets.yy), 0).r;

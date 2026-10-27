@@ -36,6 +36,7 @@ private:
 	int _region_size = 0; // Set by Terrain3D::set_region_size
 	Vector2i _region_sizev = V2I(_region_size);
 	real_t _vertex_spacing = 1.f; // Set by Terrain3D::set_vertex_spacing
+	Vector3 _origin = V3_ZERO; // World position of the terrain. Set by Terrain3D::_update_origin
 
 	AABB _edited_area;
 	Vector2 _master_height_range = V2_ZERO;
@@ -283,8 +284,8 @@ inline Ref<Terrain3DRegion> Terrain3DData::get_regionp(const Vector3 &p_global_p
 
 // Descale and floor global position to vertex grid
 inline Vector2i Terrain3DData::world_to_vgrid(const Vector3 &p_global_position) const {
-	return Vector2i(Math::floor(p_global_position.x / _vertex_spacing),
-			Math::floor(p_global_position.z / _vertex_spacing));
+	return Vector2i(Math::floor((p_global_position.x - _origin.x) / _vertex_spacing),
+			Math::floor((p_global_position.z - _origin.z) / _vertex_spacing));
 }
 
 inline Vector2i Terrain3DData::vgrid_to_pixelv(const Vector2i &p_vgrid) const {
@@ -301,11 +302,11 @@ inline Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p
 }
 
 inline void Terrain3DData::set_height(const Vector3 &p_global_position, const real_t p_height) {
-	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
+	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height - _origin.y, 0.f, 0.f, 1.f));
 }
 
 inline real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
-	return get_pixel(TYPE_HEIGHT, p_global_position).r;
+	return get_pixel(TYPE_HEIGHT, p_global_position).r + _origin.y;
 }
 
 inline void Terrain3DData::set_control(const Vector3 &p_global_position, const uint32_t p_control) {

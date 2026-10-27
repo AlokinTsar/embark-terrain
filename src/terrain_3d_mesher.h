@@ -28,6 +28,8 @@ private:
 	Terrain3D *_terrain = nullptr;
 	RID _scenario = RID();
 	Vector2 _last_target_position = V2_MAX;
+	// Terrain mesh: positioned at the terrain origin and snapped in terrain local space. Ocean: world space.
+	bool _apply_origin = false;
 
 	Array _mesh_rids;
 	// LODs -> MeshTypes -> Instances
@@ -78,6 +80,7 @@ public:
 	void update_aabbs(const real_t p_cull_margin = -1.f, const Vector2 &p_height_range = V2_MAX);
 
 	void set_material(const RID &p_material) { _material = p_material; }
+	void set_apply_origin(const bool p_apply) { _apply_origin = p_apply; }
 	RID get_material() const { return _material; }
 	void set_lods(const int p_lods) { _lods = p_lods; }
 	int get_lods() const { return _lods; }

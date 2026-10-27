@@ -227,7 +227,8 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 		if _input_mode != -1: # Not cam rotation
 			## Update region highlight
-			var region_position: Vector2 = ( Vector2(mouse_global_position.x, mouse_global_position.z) \
+			var mouse_local_position: Vector3 = terrain.to_local(mouse_global_position)
+			var region_position: Vector2 = ( Vector2(mouse_local_position.x, mouse_local_position.z) \
 				/ (terrain.get_region_size() * terrain.get_vertex_spacing()) ).floor()
 
 			if _input_mode > 0 and editor.is_operating():

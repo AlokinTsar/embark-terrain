@@ -185,6 +185,7 @@ void Terrain3D::_setup_terrain_mesher() {
 		LOG(DEBUG, "Creating mesher");
 		_terrain_mesher = new Terrain3DMesher();
 	}
+	_terrain_mesher->set_apply_origin(true);
 	_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid(), _render_layers);
 }
 
@@ -694,11 +695,11 @@ Vector3 Terrain3D::get_clipmap_target_position() const {
 	// In Editor, or no clipmap target, use camera
 	if (IS_EDITOR || !_clipmap_target.get_target()) {
 		if (Node3D *cam = _camera.get_target()) {
-			return cam->get_global_position();
+			return cam->get_global_position() - _origin;
 		}
 	}
 	if (Node3D *target = _clipmap_target.get_target()) {
-		return target->get_global_position();
+		return target->get_global_position() - _origin;
 	}
 	return V3_ZERO;
 }
@@ -717,17 +718,17 @@ Vector3 Terrain3D::get_collision_target_position() const {
 	// In Editor, always prefer camera
 	if (IS_EDITOR) {
 		if (Node3D *cam = _camera.get_target()) {
-			return cam->get_global_position();
+			return cam->get_global_position() - _origin;
 		}
 	}
 	if (Node3D *target = _collision_target.get_target()) {
-		return target->get_global_position();
+		return target->get_global_position() - _origin;
 	}
 	if (Node3D *target = _clipmap_target.get_target()) {
-		return target->get_global_position();
+		return target->get_global_position() - _origin;
 	}
 	if (Node3D *cam = _camera.get_target()) {
-		return cam->get_global_position();
+		return cam->get_global_position() - _origin;
 	}
 	return V3_ZERO;
 }
@@ -740,6 +741,55 @@ void Terrain3D::set_light_target(Node3D *p_node) {
 			set_physics_process(true);
 		}
 	}
+}
+
+// Origin is the node's world position (position only, snapped to the vertex grid), or zero
+// when use_node_transform is off.
+void Terrain3D::_update_origin() {
+	Vector3 pos = V3_ZERO;
+	if (_use_node_transform && is_inside_tree()) {
+		pos = get_global_position();
+		pos.x = round(pos.x / _vertex_spacing) * _vertex_spacing;
+		pos.z = round(pos.z / _vertex_spacing) * _vertex_spacing;
+	}
+	if (pos == _origin) {
+		return;
+	}
+	LOG(INFO, "Setting origin: ", pos);
+	_origin = pos;
+	if (_data) {
+		_data->_origin = _origin;
+	}
+	if (_material.is_valid()) {
+		_material->update();
+	}
+	if (_terrain_mesher) {
+		_terrain_mesher->update_aabbs();
+	}
+	if (_collision) {
+		_collision->update_origin();
+	}
+	if (_instancer) {
+		_instancer->update_origin();
+	}
+	snap();
+}
+
+void Terrain3D::set_use_node_transform(const bool p_enabled) {
+	SET_IF_DIFF(_use_node_transform, p_enabled);
+	LOG(INFO, "Setting use node transform: ", p_enabled);
+	if (is_inside_tree()) {
+		set_as_top_level(!_use_node_transform);
+		if (_use_node_transform) {
+			remove_meta("_edit_lock_");
+		} else {
+			set_meta("_edit_lock_", true);
+			if (get_transform() != Transform3D()) {
+				set_transform(Transform3D());
+			}
+		}
+	}
+	_update_origin();
 }
 
 void Terrain3D::snap() {
@@ -802,6 +852,7 @@ void Terrain3D::set_vertex_spacing(const real_t p_spacing) {
 	if (_collision && _data && _instancer && _material.is_valid()) {
 		_instancer->_update_vertex_spacing(_vertex_spacing);
 		_data->_vertex_spacing = _vertex_spacing;
+		_update_origin();
 		update_region_labels();
 		_material->update();
 		_setup_terrain_mesher();
@@ -1184,9 +1235,15 @@ void Terrain3D::_notification(const int p_what) {
 			// Node entered a SceneTree
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_TREE");
-			set_as_top_level(true); // Don't inherit transforms from parent. Global only.
+			// By default don't inherit transforms from parent. With use_node_transform the node's position is the origin.
+			set_as_top_level(!_use_node_transform);
 			set_notify_transform(true);
-			set_meta("_edit_lock_", true);
+			_update_origin();
+			if (_use_node_transform) {
+				remove_meta("_edit_lock_");
+			} else {
+				set_meta("_edit_lock_", true);
+			}
 			_setup_mouse_picking();
 			_setup_displacement_buffer();
 			// Reload editor textures - Also see READY
@@ -1230,7 +1287,14 @@ void Terrain3D::_notification(const int p_what) {
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
 			// Node3D or parent transform changed
-			if (get_transform() != Transform3D()) {
+			if (_use_node_transform) {
+				// Only position is used. Rotation and scale of the terrain would not match its data.
+				Basis basis = get_global_basis();
+				if (!basis.is_equal_approx(Basis())) {
+					set_global_basis(Basis());
+				}
+				_update_origin();
+			} else if (get_transform() != Transform3D()) {
 				set_transform(Transform3D());
 			}
 			break;
@@ -1429,6 +1493,13 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_light_target"), &Terrain3D::get_light_target);
 	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
 
+	// Placement
+	ClassDB::bind_method(D_METHOD("set_use_node_transform", "enabled"), &Terrain3D::set_use_node_transform);
+	ClassDB::bind_method(D_METHOD("get_use_node_transform"), &Terrain3D::get_use_node_transform);
+	ClassDB::bind_method(D_METHOD("get_origin"), &Terrain3D::get_origin);
+	ClassDB::bind_method(D_METHOD("to_local", "global_position"), &Terrain3D::to_local);
+	ClassDB::bind_method(D_METHOD("to_global", "local_position"), &Terrain3D::to_global);
+
 	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);
 	ClassDB::bind_method(D_METHOD("get_collision_mode"), &Terrain3D::get_collision_mode);
@@ -1595,6 +1666,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_3D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_collision_priority", "get_collision_priority");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
+
+	ADD_GROUP("Placement", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_node_transform"), "set_use_node_transform", "get_use_node_transform");
 
 	ADD_GROUP("Terrain Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");

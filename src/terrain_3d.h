@@ -68,6 +68,12 @@ private:
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
+	// Origin: world position of the terrain. Data, shader, meshes, collision and instances work in
+	// terrain local space; this offset places that space in the world. Always zero unless
+	// use_node_transform is enabled.
+	bool _use_node_transform = false;
+	Vector3 _origin = V3_ZERO;
+
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
@@ -119,6 +125,7 @@ private:
 	Vector3 _last_light_direction = V3_ZERO;
 
 	void _initialize();
+	void _update_origin();
 	void __physics_process(const double p_delta);
 	void _grab_camera();
 
@@ -201,6 +208,12 @@ public:
 	void set_light_target(Node3D *p_node);
 	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
+
+	void set_use_node_transform(const bool p_enabled);
+	bool get_use_node_transform() const { return _use_node_transform; }
+	Vector3 get_origin() const { return _origin; }
+	Vector3 to_local(const Vector3 &p_global_position) const { return p_global_position - _origin; }
+	Vector3 to_global(const Vector3 &p_local_position) const { return p_local_position + _origin; }
 
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }

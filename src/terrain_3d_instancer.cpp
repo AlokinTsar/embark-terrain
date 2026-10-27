@@ -212,9 +212,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			// Reposition MMI to region location
 			Transform3D t = Transform3D();
 			int region_size = p_region->get_region_size();
-			real_t vertex_spacing = _terrain->get_vertex_spacing();
-			t.origin.x += region_loc.x * region_size * vertex_spacing;
-			t.origin.z += region_loc.y * region_size * vertex_spacing;
+			t.origin = _region_offset(region_loc, region_size);
 			RS->instance_set_transform(mmi, t);
 
 			RID &mm = cell_mmi_dict[cell].second;
@@ -501,6 +499,28 @@ RID Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const int p_lod, 
 		}
 	}
 	return mm;
+}
+
+// World position of a region's corner. Instance transforms are stored relative to it.
+Vector3 Terrain3DInstancer::_region_offset(const Vector2i &p_region_loc, const int p_region_size) const {
+	const real_t span = real_t(p_region_size) * _terrain->get_vertex_spacing();
+	return _terrain->get_origin() + Vector3(p_region_loc.x * span, 0.f, p_region_loc.y * span);
+}
+
+void Terrain3DInstancer::update_origin() {
+	IS_DATA_INIT(VOID);
+	const int region_size = _terrain->get_region_size();
+	for (const auto &region_pair : _mmi_rids) {
+		Transform3D t;
+		t.origin = _region_offset(region_pair.first, region_size);
+		for (const auto &mesh_pair : region_pair.second) {
+			for (const auto &cell_pair : mesh_pair.second) {
+				if (cell_pair.second.first.is_valid()) {
+					RS->instance_set_transform(cell_pair.second.first, t);
+				}
+			}
+		}
+	}
 }
 
 Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position) const {
@@ -817,7 +837,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 		if (mesh_types.size() == 0) {
 			continue;
 		}
-		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
+		Vector3 global_local_offset = _region_offset(region_loc, region_size);
 		Vector2 localised_ring_center = Vector2(p_global_position.x - global_local_offset.x, p_global_position.z - global_local_offset.z);
 
 		for (const int mesh_id : mesh_ids) {
@@ -976,12 +996,11 @@ void Terrain3DInstancer::append_location(const Vector2i &p_region_loc, const int
 	}
 	int region_size = region->get_region_size();
 	real_t vertex_spacing = _terrain->get_vertex_spacing();
-	Vector2 global_local_offset = Vector2(p_region_loc.x * region_size * vertex_spacing, p_region_loc.y * region_size * vertex_spacing);
+	Vector3 global_local_offset = _region_offset(p_region_loc, region_size);
 	TypedArray<Transform3D> localised_xforms;
 	for (Transform3D t : p_xforms) {
 		// Localise the transform to "region space"
-		t.origin.x -= global_local_offset.x;
-		t.origin.z -= global_local_offset.y;
+		t.origin -= global_local_offset;
 		localised_xforms.push_back(t);
 	}
 	append_region(region, p_mesh_id, localised_xforms, p_colors, p_update);
@@ -1006,7 +1025,7 @@ void Terrain3DInstancer::append_region(const Ref<Terrain3DRegion> &p_region, con
 	for (int i = 0; i < p_xforms.size(); i++) {
 		Transform3D xform = p_xforms[i];
 		Color col = p_colors[i];
-		Vector2i cell = _get_cell(xform.origin);
+		Vector2i cell = _get_cell(xform.origin + _terrain->get_origin()); // Region space to global
 
 		// Get current instance arrays or create if none
 		Array triple = cell_locations[cell];
@@ -1084,7 +1103,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 		if (mesh_types.size() == 0) {
 			continue;
 		}
-		Vector3 global_local_offset = Vector3(region_loc.x * region_size * vertex_spacing, 0.f, region_loc.y * region_size * vertex_spacing);
+		Vector3 global_local_offset = _region_offset(region_loc, region_size);
 
 		// For each mesh type in this region
 		for (const int &region_mesh_id : mesh_types) {
@@ -1133,7 +1152,7 @@ void Terrain3DInstancer::update_transforms(const AABB &p_aabb) {
 						if (height_data.size() != 3) {
 							continue;
 						}
-						t.origin.y = height_data[0];
+						t.origin.y = real_t(height_data[0]) - global_local_offset.y;
 						t.origin += height_offset;
 					}
 					updated_xforms.push_back(t);
@@ -1167,7 +1186,7 @@ int Terrain3DInstancer::get_closest_mesh_id(const Vector3 &p_global_position) co
 		return -1; // No region found
 	}
 	int region_size = region->get_region_size();
-	Vector3 region_global_pos = v2iv3(region_loc) * real_t(region_size) * _terrain->get_vertex_spacing();
+	Vector3 region_global_pos = _region_offset(region_loc, region_size);
 	Vector2i cell = _get_cell(p_global_position);
 	Dictionary mesh_inst_dict = region->get_instances();
 	if (mesh_inst_dict.is_empty()) {

@@ -752,6 +752,8 @@ void Terrain3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 		}
 	}
 
+	RS->material_set_param(p_material, "_origin", _terrain->get_origin());
+
 	real_t spacing = _terrain->get_vertex_spacing();
 	LOG(EXTREME, "Setting vertex spacing in material: ", spacing);
 	RS->material_set_param(p_material, "_vertex_spacing", spacing);

@@ -18,7 +18,7 @@ R"(
 		vec3 __active_color = vec3(1.0);
 		vec3 __inactive_color = vec3(0.1);
 		float __line_thickness = 0.05 * sqrt(-VERTEX.z);
-		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * _vertex_density;
+		vec3 __pixel_pos = ((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz - _origin) * _vertex_density;
 		vec2 __p = __pixel_pos.xz;
 		// Region Grid
 		vec2 __g = abs(fract((__p + _region_size * 0.5) / _region_size) - 0.5) * _region_size;
@@ -49,7 +49,7 @@ float get_reticle(vec2 uv, int index) {
 	float cam_dist = clamp(length(v_camera_pos - v_vertex), 0., 4000.);
 	float sq_cam_dist = sqrt(cam_dist);
 	float view_scale = 16.0 / sq_cam_dist;
-	vec2 cross_uv = (uv * _vertex_spacing - _editor_decal_position[index]) * view_scale;
+	vec2 cross_uv = (uv * _vertex_spacing - (_editor_decal_position[index] - _origin.xz)) * view_scale;
 	float brush_radius = max((_editor_decal_size[index] * 0.5) * view_scale, 1.);
 	float line_start = brush_radius + log2(cam_dist);
 	float line_end = 2.5 * line_start;
@@ -83,8 +83,8 @@ vec3 get_decal(vec3 albedo, vec2 uv) {
 		float cosa = cos(_editor_decal_rotation[i]);
 		float sina = sin(_editor_decal_rotation[i]);
 		vec2 decal_uv = (vec2(cosa * uv.x - sina * uv.y, sina * uv.x + cosa * uv.y) - 
-			vec2(cosa * _editor_decal_position[i].x - sina * _editor_decal_position[i].y,
-			sina * _editor_decal_position[i].x + cosa * _editor_decal_position[i].y) * _vertex_density) * size * _vertex_spacing;
+			vec2(cosa * (_editor_decal_position[i].x - _origin.x) - sina * (_editor_decal_position[i].y - _origin.z),
+			sina * (_editor_decal_position[i].x - _origin.x) + cosa * (_editor_decal_position[i].y - _origin.z)) * _vertex_density) * size * _vertex_spacing;
 
 		float decal = 0.0;
         if (i == 0 && abs(decal_uv.x) <= 0.499 && abs(decal_uv.y) <= 0.499 && _editor_decal_part[0]) {

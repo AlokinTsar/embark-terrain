@@ -393,8 +393,9 @@ func update_decal() -> void:
 		var r_size: float = float(plugin.terrain.get_region_size()) * plugin.terrain.get_vertex_spacing()
 		var map_size: int = plugin.terrain.data.REGION_MAP_SIZE
 		var half_r_size: float = r_size * 0.5
-		var pos: Vector2 = (Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z) +
-			Vector2(half_r_size, half_r_size)).snappedf(r_size) - Vector2(half_r_size, half_r_size)
+		var origin_xz := Vector2(plugin.terrain.get_origin().x, plugin.terrain.get_origin().z)
+		var pos: Vector2 = (Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z) - origin_xz +
+			Vector2(half_r_size, half_r_size)).snappedf(r_size) - Vector2(half_r_size, half_r_size) + origin_xz
 		editor_brush_texture_rid = region_texture.get_rid()
 		editor_decal_position[0] = pos
 		editor_decal_size[0] = r_size

@@ -41,6 +41,26 @@
 				Returns the position on which the terrain mesh is centered, which may be the camera or a target node. See [member clipmap_target].
 			</description>
 		</method>
+		<method name="get_origin" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the world position of the terrain. This is the node's position, snapped to [member vertex_spacing] on X and Z, when [member use_node_transform] is enabled. Otherwise it is always [code]Vector3(0, 0, 0)[/code].
+			</description>
+		</method>
+		<method name="to_global" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="local_position" type="Vector3" />
+			<description>
+				Converts a position in terrain space, the space the region data is stored in, to world space by adding [method get_origin].
+			</description>
+		</method>
+		<method name="to_local" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="global_position" type="Vector3" />
+			<description>
+				Converts a world position to terrain space by subtracting [method get_origin].
+			</description>
+		</method>
 		<method name="get_collision_target_position" qualifiers="const">
 			<return type="Vector3" />
 			<description>
@@ -397,7 +417,12 @@
 		<member name="version" type="String" setter="" getter="get_version" default="&quot;1.1.0-dev&quot;">
 			The current version of Terrain3D.
 		</member>
-		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
+				<member name="use_node_transform" type="bool" setter="set_use_node_transform" getter="get_use_node_transform" default="false">
+			If enabled, the terrain follows the position of this node, so it can be moved like any other asset, or by moving its parent. Rotation and scale are not supported and are reset. Region data is not changed by moving, so one terrain can be placed anywhere.
+			If disabled, the terrain ignores its transform and always sits at the world origin, as in previous versions.
+			Global positions passed to [Terrain3DData] and [Terrain3DInstancer] are always world positions, and are converted to terrain space internally. [method get_clipmap_target_position] and [method get_collision_target_position] return terrain space positions.
+		</member>
+<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
 			The distance between vertices, settable up to 100. Godot units are typically considered to be meters. This laterally scales the terrain on X and Z axes.
 			This variable changes the global position of landscape features. A mountain peak might be at (512, 512), but with a vertex spacing of 2.0 it is now located at (1024, 1024). It retains the same height.
 			All Terrain3D functions with a global_position expect an absolute global value. If you would normally use [method Terrain3DData.import_images] to import an image in the region at (-1024, -1024), with a vertex_spacing of 2, you'll need to import that image at (-2048, -2048) to place it in the same region.
