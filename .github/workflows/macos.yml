@@ -1,27 +1,25 @@
-﻿name: 🍎 macOS Builds
-on: [ workflow_call, workflow_dispatch ]
+name: Build macOS
+on:
+  workflow_dispatch:
+  push:
+    branches: [smooth-texture-paint, terrain-origin]
 
 jobs:
   build:
-    name: 🍎 macOS ${{ matrix.arch }} ${{ matrix.target }}
     runs-on: macos-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [universal]
-        target: [debug, release]
-        include:
-          - platform: macos
-
     steps:
-      - name: Checkout Terrain3D
-        uses: actions/checkout@v7
-
-      - uses: ./.github/actions/build-artifact
+      - uses: actions/checkout@v4
         with:
-          cache-name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
-          platform: ${{ matrix.platform }}
-          arch: ${{ matrix.arch }}
-          target: ${{ matrix.target }}
-          flags: -j3
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install scons
+      - name: Build debug and release (universal)
+        run: |
+          scons platform=macos arch=universal target=template_debug api_version=4.5 -j4
+          scons platform=macos arch=universal target=template_release api_version=4.5 -j4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terrain3d-macos
+          path: project/addons/terrain_3d/bin/*.framework
