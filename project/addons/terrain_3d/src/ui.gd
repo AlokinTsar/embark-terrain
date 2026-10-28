@@ -685,9 +685,7 @@ func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 func setup_live_info_panel() -> void:
 	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
 	live_info_panel.plugin = plugin
-	var viewport_container: Node = plugin.get_editor_viewport_container()
-	if not viewport_container:
-		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get editor viewport container")
-		return
-	viewport_container.add_child(live_info_panel, true)
+	# Godot 4.6.2 crashes (stack smash in Node3DEditorViewportContainer sort_children) when a
+	# child is added to that container. Parent the panel to this node instead; it stays hidden.
+	add_child(live_info_panel, true)
 	live_info_panel.visible = false

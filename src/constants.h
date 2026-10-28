@@ -11,6 +11,22 @@
 #include <godot_cpp/variant/vector2i.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
+// Compatibility with godot-cpp 4.6+, which moved these into the Math namespace
+#if __has_include(<godot_cpp/core/math_funcs_binary.hpp>)
+#include <godot_cpp/core/math.hpp>
+#include <godot_cpp/core/math_funcs_binary.hpp>
+#ifndef Math_PI
+#define Math_PI godot::Math::PI
+#endif
+#ifndef Math_TAU
+#define Math_TAU godot::Math::TAU
+#endif
+namespace godot {
+using Math::closest_power_of_2;
+using Math::is_power_of_2;
+} // namespace godot
+#endif
+
 // GDExtension uses the godot namespace, custom modules do not
 #if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;
